@@ -1,14 +1,16 @@
-// Reader.js: Display selected chapter content
+// Reader.js: Display chapter and save bookmark
 
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebaseConfig";
+import { doc, getDoc, setDoc, getFirestore } from "firebase/firestore";
+import { db, auth } from "../firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
 
 export default function Reader() {
   const { novelId, chapterId } = useParams();
   const [chapter, setChapter] = useState(null);
   const [novelTitle, setNovelTitle] = useState("");
+  const [user, setUser] = useState(null);
 
   const fetchChapter = async () => {
     const docRef = doc(db, "novels", novelId);
@@ -18,12 +20,37 @@ export default function Reader() {
       const chap = data.chapters?.[parseInt(chapterId)];
       setChapter(chap);
       setNovelTitle(data.title);
+
+      // Save bookmark if user is logged in
+      if (user) {
+        await setDoc(
+          doc(db, "users", user.uid),
+          {
+            bookmarks: {
+              [novelId]: {
+                chapterId: parseInt(chapterId),
+                title: chap.title,
+                novelTitle: data.title,
+                timestamp: new Date().toISOString()
+              }
+            }
+          },
+          { merge: true }
+        );
+      }
     }
   };
 
   useEffect(() => {
-    fetchChapter();
-  }, [novelId, chapterId]);
+    const unsub = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (user) fetchChapter();
+  }, [user, novelId, chapterId]);
 
   if (!chapter) return <div className="p-4">Loading chapter...</div>;
 
