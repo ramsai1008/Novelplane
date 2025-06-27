@@ -1,4 +1,4 @@
-// pages/dashboard.js — with chapter upload/edit/delete
+// pages/dashboard.js — with editable chapters
 
 import React, { useEffect, useState } from "react";
 import { db, auth } from "../firebaseConfig";
@@ -21,6 +21,8 @@ export default function Dashboard() {
   const [novels, setNovels] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [newChapter, setNewChapter] = useState({ title: "", content: "" });
+  const [editIndex, setEditIndex] = useState(null);
+  const [editChapter, setEditChapter] = useState({ title: "", content: "" });
 
   const fetchNovels = async () => {
     const snap = await getDocs(collection(db, "novels"));
@@ -77,6 +79,19 @@ export default function Dashboard() {
       const chapters = data.chapters || [];
       chapters.splice(index, 1);
       await updateDoc(novelRef, { chapters });
+      fetchNovels();
+    }
+  };
+
+  const handleSaveEdit = async (novelId, index) => {
+    const novelRef = doc(db, "novels", novelId);
+    const novelSnap = await getDoc(novelRef);
+    if (novelSnap.exists()) {
+      const data = novelSnap.data();
+      const chapters = data.chapters || [];
+      chapters[index] = { ...editChapter };
+      await updateDoc(novelRef, { chapters });
+      setEditIndex(null);
       fetchNovels();
     }
   };
@@ -138,19 +153,63 @@ export default function Dashboard() {
                   {expandedId === novel.id && (
                     <div className="mt-4">
                       <h4 className="font-medium mb-2">📖 Chapters</h4>
-                      <ul className="space-y-2 mb-4">
+                      <ul className="space-y-3 mb-4">
                         {(novel.chapters || []).map((chap, i) => (
-                          <li key={i} className="flex justify-between border p-2 rounded">
-                            <span>{chap.title}</span>
-                            <button
-                              onClick={() => handleDeleteChapter(novel.id, i)}
-                              className="text-red-600 text-sm hover:underline"
-                            >
-                              Delete
-                            </button>
+                          <li key={i} className="border p-3 rounded">
+                            {editIndex === i ? (
+                              <div className="space-y-2">
+                                <input
+                                  className="w-full border p-2 rounded"
+                                  value={editChapter.title}
+                                  onChange={(e) => setEditChapter({ ...editChapter, title: e.target.value })}
+                                />
+                                <textarea
+                                  className="w-full border p-2 rounded"
+                                  rows={3}
+                                  value={editChapter.content}
+                                  onChange={(e) => setEditChapter({ ...editChapter, content: e.target.value })}
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleSaveEdit(novel.id, i)}
+                                    className="bg-green-600 text-white px-3 py-1 rounded text-sm"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => setEditIndex(null)}
+                                    className="text-sm text-gray-600 hover:underline"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex justify-between">
+                                <span>{chap.title}</span>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setEditIndex(i);
+                                      setEditChapter(chap);
+                                    }}
+                                    className="text-blue-600 text-sm hover:underline"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteChapter(novel.id, i)}
+                                    className="text-red-600 text-sm hover:underline"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </li>
                         ))}
                       </ul>
+
                       <div className="space-y-2">
                         <input
                           className="w-full border p-2 rounded"
