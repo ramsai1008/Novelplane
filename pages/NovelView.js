@@ -1,0 +1,1 @@
+export default function NovelView() { return <div>Novel Detail Page</div>; }
