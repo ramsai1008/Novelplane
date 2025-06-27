@@ -1,7 +1,7 @@
-// pages/dashboard.js — with editable chapters
+// pages/dashboard.js — add cover image upload
 
 import React, { useEffect, useState } from "react";
-import { db, auth } from "../firebaseConfig";
+import { db, auth, storage } from "../firebaseConfig";
 import {
   collection,
   addDoc,
@@ -11,6 +11,7 @@ import {
   deleteDoc,
   getDoc
 } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { onAuthStateChanged } from "firebase/auth";
 import Layout from "../components/Layout";
 
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [coverFile, setCoverFile] = useState(null);
   const [novels, setNovels] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [newChapter, setNewChapter] = useState({ title: "", content: "" });
@@ -42,14 +44,24 @@ export default function Dashboard() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await addDoc(collection(db, "novels"), {
+    const docRef = await addDoc(collection(db, "novels"), {
       title,
       description,
       cover: "",
       chapters: []
     });
+
+    let coverUrl = "";
+    if (coverFile) {
+      const imageRef = ref(storage, `covers/${docRef.id}.jpg`);
+      await uploadBytes(imageRef, coverFile);
+      coverUrl = await getDownloadURL(imageRef);
+      await updateDoc(docRef, { cover: coverUrl });
+    }
+
     setTitle("");
     setDescription("");
+    setCoverFile(null);
     fetchNovels();
   };
 
@@ -120,6 +132,11 @@ export default function Dashboard() {
                 rows={3}
                 required
               />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setCoverFile(e.target.files[0])}
+              />
               <button className="bg-blue-600 text-white px-4 py-2 rounded" type="submit">
                 ➕ Add Novel
               </button>
@@ -129,12 +146,13 @@ export default function Dashboard() {
             <ul className="space-y-4">
               {novels.map((novel) => (
                 <li key={novel.id} className="border p-4 rounded shadow">
-                  <div className="flex justify-between items-center">
-                    <div>
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1">
                       <h3 className="font-semibold">{novel.title}</h3>
                       <p className="text-sm text-gray-600">{novel.description}</p>
+                      {novel.cover && <img src={novel.cover} alt="cover" className="mt-2 w-24 h-32 object-cover rounded" />}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
                       <button
                         onClick={() => handleDelete(novel.id)}
                         className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
@@ -231,14 +249,3 @@ export default function Dashboard() {
                           ➕ Add Chapter
                         </button>
                       </div>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-    </Layout>
-  );
-}
