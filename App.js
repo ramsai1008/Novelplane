@@ -1,7 +1,9 @@
-// App.js: Add navbar and routing
+// App.js: Add user menu with logout
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate, Link } from "react-router-dom";
+import { auth } from "./firebaseConfig";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 
 import Home from "./pages/index";
 import Login from "./pages/Login";
@@ -12,14 +14,42 @@ import NovelView from "./pages/NovelView";
 import History from "./pages/History";
 
 export default function App() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, setUser);
+    return () => unsub();
+  }, []);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
+
   return (
     <Router>
-      <nav className="bg-gray-800 text-white p-4 flex gap-4">
-        <Link to="/" className="hover:underline">Home</Link>
-        <Link to="/dashboard" className="hover:underline">Dashboard</Link>
-        <Link to="/history" className="hover:underline">History</Link>
-        <Link to="/login" className="ml-auto hover:underline">Login</Link>
+      <nav className="bg-gray-800 text-white p-4 flex items-center justify-between">
+        <div className="flex gap-4">
+          <Link to="/" className="hover:underline">Home</Link>
+          <Link to="/dashboard" className="hover:underline">Dashboard</Link>
+          <Link to="/history" className="hover:underline">History</Link>
+        </div>
+        <div className="flex gap-4 items-center">
+          {user ? (
+            <>
+              <span className="text-sm">Hello, {user.email}</span>
+              <button
+                onClick={handleLogout}
+                className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <Link to="/login" className="hover:underline">Login</Link>
+          )}
+        </div>
       </nav>
+
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
